@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# pylint: disable=C0116
-# This program is dedicated to the public domain under the CC0 license.
 
 """
 Simple Bot to send timed Telegram messages.
@@ -21,7 +19,7 @@ bot.
 import logging
 
 from telegram import Update
-from main import scan_logfile_for_stats
+from main import scan_logfile_for_stats, get_latest_logfile
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Enable logging
@@ -41,7 +39,7 @@ def start(update: Update, _: CallbackContext) -> None:
 def alarm(context: CallbackContext) -> None:
     """Send the alarm message."""
     job = context.job
-    context.bot.send_message(job.context, text='Beep!')
+    context.bot.send_message(job.context, text=scan_logfile_for_stats(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
 
 
 def remove_job_if_exists(name: str, context: CallbackContext) -> bool:

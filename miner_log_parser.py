@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+
 from pathlib import Path
 
 import os
@@ -32,9 +35,9 @@ def scan_logfile_for_stats(logfile_path) -> str:
     matched_accepted_shares = re.findall("Accepted shares [0-9]+", logs)
     matched_incorrect_shares = re.findall("Incorrect shares [^0]", logs)
     matched_average_speed = re.findall('Average speed \(5 min\): [0-9.]+ MH/s', logs)
+    # if len(matched_incorrect_shares) > 0:
+    #     return matched_incorrect_shares[-1]
     if len(matched_incorrect_shares) > 0:
-        return matched_incorrect_shares[-1]
-
-if __name__ == "__main__":
-    temp = get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")
-    scan_logfile_for_stats(temp)
+        return matched_accepted_shares[-1] + os.linesep + matched_average_speed[-1] + os.linesep + matched_incorrect_shares[-1];
+    else:
+        return matched_accepted_shares[-1] + os.linesep + matched_average_speed[-1];
