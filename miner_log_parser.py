@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-
+"""
+Provides some functions to extract stats from miner logs.
+"""
 from pathlib import Path
 
 import os
@@ -29,15 +31,20 @@ def get_latest_logfile(directory_to_look_into, log_filename_regex):
     return path
 
 
+def scan_logfile_for_incorrect_shares(logfile_path) -> str:
+    logs = open(logfile_path, "r").read()
+    matched_incorrect_shares = re.findall("Incorrect shares [^0]", logs)
+    if len(matched_incorrect_shares) > 0:
+        return matched_incorrect_shares[-1];
+
+
 def scan_logfile_for_stats(logfile_path) -> str:
     logs = open(logfile_path, "r").read()
-    print(logs)
     matched_accepted_shares = re.findall("Accepted shares [0-9]+", logs)
     matched_incorrect_shares = re.findall("Incorrect shares [^0]", logs)
-    matched_average_speed = re.findall('Average speed \(5 min\): [0-9.]+ MH/s', logs)
-    # if len(matched_incorrect_shares) > 0:
-    #     return matched_incorrect_shares[-1]
+    matched_average_speed = re.findall("Average speed \(5 min\): [0-9.]+ MH/s", logs)
     if len(matched_incorrect_shares) > 0:
-        return matched_accepted_shares[-1] + os.linesep + matched_average_speed[-1] + os.linesep + matched_incorrect_shares[-1];
+        return matched_accepted_shares[-1] + os.linesep + matched_average_speed[-1] + os.linesep + \
+               matched_incorrect_shares[-1];
     else:
         return matched_accepted_shares[-1] + os.linesep + matched_average_speed[-1];

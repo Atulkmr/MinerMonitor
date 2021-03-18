@@ -19,7 +19,7 @@ bot.
 import logging
 
 from telegram import Update
-from main import scan_logfile_for_stats, get_latest_logfile
+from miner_log_parser import scan_logfile_for_stats, get_latest_logfile, scan_logfile_for_incorrect_shares
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Enable logging
@@ -32,14 +32,14 @@ logger = logging.getLogger(__name__)
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
-def start(update: Update, _: CallbackContext) -> None:
-    update.message.reply_text('Hi! Use /set <seconds> to set a timer')
+def stats(update: Update, _: CallbackContext) -> None:
+    update.message.reply_text(scan_logfile_for_stats(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
 
 
-def alarm(context: CallbackContext) -> None:
-    """Send the alarm message."""
+def notification(context: CallbackContext) -> None:
+    """Send the notification message."""
     job = context.job
-    context.bot.send_message(job.context, text=scan_logfile_for_stats(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
+    context.bot.send_message(job.context, text=scan_logfile_for_incorrect_shares(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
 
 
 def remove_job_if_exists(name: str, context: CallbackContext) -> bool:
@@ -52,27 +52,27 @@ def remove_job_if_exists(name: str, context: CallbackContext) -> bool:
     return True
 
 
-def set_timer(update: Update, context: CallbackContext) -> None:
+def set_notification_timer(update: Update, context: CallbackContext) -> None:
     """Add a job to the queue."""
     chat_id = update.message.chat_id
     try:
         # args[0] should contain the time for the timer in seconds
         due = int(context.args[0])
         if due < 0:
-            update.message.reply_text('Sorry we can not go back to future!')
+            update.message.reply_text("Sorry the interval can't be negative!")
             return
 
         job_removed = remove_job_if_exists(str(chat_id), context)
         # context.job_queue.run_once(alarm, due, context=chat_id, name=str(chat_id))
-        context.job_queue.run_repeating(alarm, interval=due, context=chat_id, name=str(chat_id))
+        context.job_queue.run_repeating(notification, interval=due, context=chat_id, name=str(chat_id))
 
-        text = 'Timer successfully set!'
+        text = 'Polling timer successfully set!'
         if job_removed:
             text += ' Old one was removed.'
         update.message.reply_text(text)
 
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /set <seconds>')
+        update.message.reply_text('Usage: /poll_every <seconds>')
 
 
 def unset(update: Update, context: CallbackContext) -> None:
@@ -92,9 +92,8 @@ def main() -> None:
     dispatcher = updater.dispatcher
 
     # on different commands - answer in Telegram
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("help", start))
-    dispatcher.add_handler(CommandHandler("set", set_timer))
+    dispatcher.add_handler(CommandHandler("stats", stats))
+    dispatcher.add_handler(CommandHandler("poll_every", set_notification_timer))
     dispatcher.add_handler(CommandHandler("unset", unset))
 
     # Start the Bot
