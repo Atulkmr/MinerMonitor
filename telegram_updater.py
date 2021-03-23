@@ -30,16 +30,26 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def detect_and_track_invalid_shares() -> str:
+    last_invalid_share_state = ''
+    temp = scan_logfile_for_incorrect_shares(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*"))
+    if temp != last_invalid_share_state:
+        last_invalid_share_state = temp
+    return last_invalid_share_state
+
+
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
 def stats(update: Update, _: CallbackContext) -> None:
-    update.message.reply_text(scan_logfile_for_stats(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
+    update.message.reply_text(
+        scan_logfile_for_stats(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
 
 
 def notification(context: CallbackContext) -> None:
     """Send the notification message."""
     job = context.job
-    context.bot.send_message(job.context, text=scan_logfile_for_incorrect_shares(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
+    if detect_and_track_invalid_shares() != '':
+        context.bot.send_message(job.context, text=detect_and_track_invalid_shares())
 
 
 def remove_job_if_exists(name: str, context: CallbackContext) -> bool:
@@ -86,7 +96,7 @@ def unset(update: Update, context: CallbackContext) -> None:
 def main() -> None:
     """Run bot."""
     # Create the Updater and pass it your bot's token.
-    updater = Updater("1690607524:AAEQ9PNw2c0pcjNck2edIMtGK36RQlUrNT8")
+    updater = Updater("TOKEN")
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
