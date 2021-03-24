@@ -28,7 +28,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-latest_state_of_incorrect_shares = ''
+latest_state_of_incorrect_shares = None
 
 
 # Define a few command handlers. These usually take the two arguments update and
@@ -79,7 +79,7 @@ def set_watchdog_monitor(update: Update, context: CallbackContext) -> None:
         job_removed = remove_job_if_exists(str(chat_id), context)
         context.job_queue.run_repeating(notify_on_issue, interval=due, context=chat_id, name=str(chat_id))
 
-        text = 'Watchdog monitor successfully set for ' + str(due) + 'seconds interval.'
+        text = 'Watchdog monitor successfully set for ' + str(due) + ' seconds interval.'
         if job_removed:
             text += ' Old one was removed.'
         update.message.reply_text(text)

@@ -30,7 +30,6 @@ def get_latest_logfile():
     paths = reversed(paths)
     for path in paths:
         if re.match(miner_logfile_prefix, path.name):
-            print(path.name)
             break
     return path
 
