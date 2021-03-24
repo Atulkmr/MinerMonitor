@@ -19,7 +19,7 @@ bot.
 import logging
 
 from telegram import Update
-from miner_log_parser import scan_logfile_for_stats, get_latest_logfile, scan_logfile_for_incorrect_shares
+from miner_utils import *
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Enable logging
@@ -28,28 +28,32 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-
-def detect_and_track_invalid_shares() -> str:
-    last_invalid_share_state = ''
-    temp = scan_logfile_for_incorrect_shares(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*"))
-    if temp != last_invalid_share_state:
-        last_invalid_share_state = temp
-    return last_invalid_share_state
+latest_state_of_incorrect_shares = ''
 
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
 def stats(update: Update, _: CallbackContext) -> None:
-    update.message.reply_text(
-        scan_logfile_for_stats(get_latest_logfile("/Users/atulkumar/Documents/watchdog_script", "log.*")))
+    update.message.reply_text(scan_logfile_for_stats())
 
 
-def notification(context: CallbackContext) -> None:
+def have_incorrect_shares_changed() -> bool:
+    if scan_logfile_for_incorrect_shares() != latest_state_of_incorrect_shares:
+        global latest_state_of_incorrect_shares
+        latest_state_of_incorrect_shares = scan_logfile_for_incorrect_shares()
+        return True
+    else:
+        return False
+
+
+def notify_on_issue(context: CallbackContext) -> None:
     """Send the notification message."""
     job = context.job
-    if detect_and_track_invalid_shares() != '':
-        context.bot.send_message(job.context, text=detect_and_track_invalid_shares())
+    if not check_if_process_running():
+        context.bot.send_message(job.context, text='Miner process not found. Restarting rig')
+        os.system('shutdown /r')
+    if have_incorrect_shares_changed():
+        context.bot.send_message(job.context, text=latest_state_of_incorrect_shares)
 
 
 def remove_job_if_exists(name: str, context: CallbackContext) -> bool:
@@ -62,27 +66,26 @@ def remove_job_if_exists(name: str, context: CallbackContext) -> bool:
     return True
 
 
-def set_notification_timer(update: Update, context: CallbackContext) -> None:
+def set_watchdog_monitor(update: Update, context: CallbackContext) -> None:
     """Add a job to the queue."""
     chat_id = update.message.chat_id
     try:
-        # args[0] should contain the time for the timer in seconds
-        due = int(context.args[0])
+        # args[0] should contain the time for the timer in seconds, if not provided defaults to 60 seconds
+        due = int(context.args[0]) if len(context.args) == 1 else 60
         if due < 0:
             update.message.reply_text("Sorry the interval can't be negative!")
             return
 
         job_removed = remove_job_if_exists(str(chat_id), context)
-        # context.job_queue.run_once(alarm, due, context=chat_id, name=str(chat_id))
-        context.job_queue.run_repeating(notification, interval=due, context=chat_id, name=str(chat_id))
+        context.job_queue.run_repeating(notify_on_issue, interval=due, context=chat_id, name=str(chat_id))
 
-        text = 'Polling timer successfully set!'
+        text = 'Polling timer successfully set for ' + str(due) + '.'
         if job_removed:
             text += ' Old one was removed.'
         update.message.reply_text(text)
 
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /poll_every <seconds>')
+        update.message.reply_text('Usage: /monitor <seconds>')
 
 
 def unset(update: Update, context: CallbackContext) -> None:
@@ -93,18 +96,24 @@ def unset(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(text)
 
 
+def restart_rig(update: Update, _: CallbackContext) -> None:
+    update.message.reply_text("restarting now.")
+    os.system("shutdown /r")
+
+
 def main() -> None:
     """Run bot."""
     # Create the Updater and pass it your bot's token.
-    updater = Updater("TOKEN")
+    updater = Updater(os.getenv('TELEGRAM_BOT_TOKEN'))
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
 
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("stats", stats))
-    dispatcher.add_handler(CommandHandler("poll_every", set_notification_timer))
+    dispatcher.add_handler(CommandHandler("monitor", set_watchdog_monitor))
     dispatcher.add_handler(CommandHandler("unset", unset))
+    dispatcher.add_handler((CommandHandler("restart", restart_rig)))
 
     # Start the Bot
     updater.start_polling()
